@@ -36,69 +36,74 @@ def load_data(file: Any) -> Optional[List[Dict[str, Any]]]:
         return None
 
 
-def process_data(data: Any) -> pd.DataFrame:
+def process_data(data: Dict[str, List[Dict[str, Any]]]) -> pd.DataFrame:
     """Process the data by extracting the month, model, cost, and user.
 
     Args:
-        data: A list of dictionaries containing cost records.
+        data: A dictionary where keys are user emails and values are lists of cost records.
 
     Returns:
         A pandas DataFrame with processed data.
     """
-    # ✅ JSON 데이터가 리스트가 아니면 오류 처리
-    if not isinstance(data, list):
-        st.error(f"Invalid JSON format. Expected a list, but got {type(data).__name__}.")
-        return pd.DataFrame()  # 빈 DataFrame 반환
-
     processed_data = []
-    for record in data:
-        if not isinstance(record, dict):  # ✅ 리스트 안의 요소가 `dict`인지 확인
-            st.error(f"Invalid record format: {record}")
-            continue  # 🚨 건너뜀
 
-        timestamp_str = record.get("timestamp")  # ✅ `get()` 사용하여 키가 없을 경우 대비
-        if not timestamp_str or not isinstance(timestamp_str, str):
-            st.error(f"Invalid or missing timestamp in record: {record}")
-            continue  # 🚨 건너뜀
+    for user_email, records in data.items():
+        if not isinstance(records, list):  # 🚨 리스트가 아닐 경우 오류 방지
+            st.error(f"Invalid data format for user {user_email}")
+            continue
 
-        # ✅ 여러 timestamp 포맷을 고려하여 변환
-        timestamp = None
-        for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):  # 마이크로초 포함/미포함
-            try:
-                timestamp = datetime.datetime.strptime(timestamp_str, fmt)
-                break  # 변환 성공하면 루프 탈출
-            except ValueError:
+        for record in records:
+            if not isinstance(record, dict):  # 🚨 잘못된 데이터 필터링
+                st.error(f"Invalid record format: {record}")
                 continue
 
-        if not timestamp:
-            st.error(f"Invalid timestamp format: {timestamp_str}")
-            continue  # 🚨 건너뜀
+            timestamp_str = record.get("timestamp")
+            if not timestamp_str or not isinstance(timestamp_str, str):
+                st.error(f"Missing or invalid timestamp in record: {record}")
+                continue  # 🚨 건너뛰기
 
-        month = timestamp.strftime("%Y-%m")
-        model = record.get("model", "Unknown Model")  # ✅ `get()` 사용하여 기본값 지정
-        cost = record.get("total_cost", "0")  # ✅ 기본값 지정
-        
-        # ✅ `cost` 값이 문자열이면 변환
-        try:
-            cost = float(cost) if isinstance(cost, (int, float, str)) else 0.0
-        except ValueError:
-            st.error(f"Invalid cost value for model {model}: {cost}")
-            continue  # 🚨 건너뜀
-        
-        total_tokens = record.get("input_tokens", 0) + record.get("output_tokens", 0)  # ✅ 기본값 처리
-        user = record.get("user", "Unknown User")  # ✅ 기본값 처리
+            # ✅ 여러 timestamp 포맷 지원
+            timestamp = None
+            for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):
+                try:
+                    timestamp = datetime.datetime.strptime(timestamp_str, fmt)
+                    break
+                except ValueError:
+                    continue
 
-        processed_data.append(
-            {
-                "month": month,
-                "model": model,
-                "total_cost": cost,
-                "user": user,
-                "total_tokens": total_tokens,
-            }
-        )
+            if not timestamp:
+                st.error(f"Invalid timestamp format: {timestamp_str}")
+                continue  # 🚨 건너뛰기
 
-    return pd.DataFrame(processed_data)
+            month = timestamp.strftime("%Y-%m")
+            model = record.get("model", "Unknown Model")
+            cost = record.get("total_cost", "0")
+
+            try:
+                cost = float(cost) if isinstance(cost, (int, float, str)) else 0.0
+            except ValueError:
+                st.error(f"Invalid cost value for model {model}: {cost}")
+                continue  # 🚨 건너뛰기
+
+            total_tokens = record.get("input_tokens", 0) + record.get("output_tokens", 0)
+
+            processed_data.append(
+                {
+                    "month": month,
+                    "model": model,
+                    "total_cost": cost,
+                    "user": user_email,  # ✅ 사용자 이메일 추가
+                    "total_tokens": total_tokens,
+                }
+            )
+
+    df = pd.DataFrame(processed_data)
+
+    # ✅ DataFrame이 비어 있는 경우 경고 메시지 출력
+    if df.empty:
+        st.warning("No valid data was processed. Please check your JSON file.")
+
+    return df
 
 
 def plot_data(data: pd.DataFrame, month: str) -> None:
