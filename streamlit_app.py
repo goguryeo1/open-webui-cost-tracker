@@ -18,7 +18,7 @@ import plotly.express as px
 import streamlit as st
 st.set_page_config(page_title="Cost Tracker App", page_icon="💵")
 
-@st.cache
+@st.cache_data
 def load_data(file: Any) -> Optional[List[Dict[str, Any]]]:
     """Load data from a JSON file.
 
