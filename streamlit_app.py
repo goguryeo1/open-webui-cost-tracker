@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-
+st.set_page_config(page_title="Cost Tracker App", page_icon="💵")
 
 @st.cache
 def load_data(file: Any) -> Optional[List[Dict[str, Any]]]:
@@ -154,7 +154,6 @@ def plot_data(data: pd.DataFrame, month: str) -> None:
 
 
 def main():
-    st.set_page_config(page_title="Cost Tracker App", page_icon="💵")
 
     st.title("Cost Tracker for Open WebUI")
     st.divider()
