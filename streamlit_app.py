@@ -47,20 +47,38 @@ def process_data(data: List[Dict[str, Any]]) -> pd.DataFrame:
     """
     processed_data = []
     for record in data:
-        timestamp = datetime.datetime.strptime(
-            record["timestamp"], "%Y-%m-%dT%H:%M:%S.%f"
-        )
+        timestamp_str = record.get("timestamp")  # ✅ `get()` 사용하여 키가 없을 경우 대비
+        if not timestamp_str or not isinstance(timestamp_str, str):
+            st.error(f"Invalid or missing timestamp in record: {record}")
+            continue  # 🚨 건너뜀
+
+        # ✅ 여러 timestamp 포맷을 고려하여 변환
+        timestamp = None
+        for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):  # 마이크로초 포함/미포함
+            try:
+                timestamp = datetime.datetime.strptime(timestamp_str, fmt)
+                break  # 변환 성공하면 루프 탈출
+            except ValueError:
+                continue
+
+        if not timestamp:
+            st.error(f"Invalid timestamp format: {timestamp_str}")
+            continue  # 🚨 건너뜀
+
         month = timestamp.strftime("%Y-%m")
-        model = record["model"]
-        cost = record["total_cost"]
+        model = record.get("model", "Unknown Model")  # ✅ `get()` 사용하여 기본값 지정
+        cost = record.get("total_cost", "0")  # ✅ 기본값 지정
+        
+        # ✅ `cost` 값이 문자열이면 변환
         try:
-            if isinstance(cost, str):
-                cost = float(cost)
+            cost = float(cost) if isinstance(cost, (int, float, str)) else 0.0
         except ValueError:
-            st.error(f"Invalid cost value for model {model}.")
-            continue
-        total_tokens = record["input_tokens"] + record["output_tokens"]
-        user = record["user"]
+            st.error(f"Invalid cost value for model {model}: {cost}")
+            continue  # 🚨 건너뜀
+        
+        total_tokens = record.get("input_tokens", 0) + record.get("output_tokens", 0)  # ✅ 기본값 처리
+        user = record.get("user", "Unknown User")  # ✅ 기본값 처리
+
         processed_data.append(
             {
                 "month": month,
@@ -70,6 +88,7 @@ def process_data(data: List[Dict[str, Any]]) -> pd.DataFrame:
                 "total_tokens": total_tokens,
             }
         )
+
     return pd.DataFrame(processed_data)
 
 
