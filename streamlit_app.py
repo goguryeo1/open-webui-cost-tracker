@@ -36,7 +36,7 @@ def load_data(file: Any) -> Optional[List[Dict[str, Any]]]:
         return None
 
 
-def process_data(data: List[Dict[str, Any]]) -> pd.DataFrame:
+def process_data(data: Any) -> pd.DataFrame:
     """Process the data by extracting the month, model, cost, and user.
 
     Args:
@@ -45,8 +45,17 @@ def process_data(data: List[Dict[str, Any]]) -> pd.DataFrame:
     Returns:
         A pandas DataFrame with processed data.
     """
+    # ✅ JSON 데이터가 리스트가 아니면 오류 처리
+    if not isinstance(data, list):
+        st.error(f"Invalid JSON format. Expected a list, but got {type(data).__name__}.")
+        return pd.DataFrame()  # 빈 DataFrame 반환
+
     processed_data = []
     for record in data:
+        if not isinstance(record, dict):  # ✅ 리스트 안의 요소가 `dict`인지 확인
+            st.error(f"Invalid record format: {record}")
+            continue  # 🚨 건너뜀
+
         timestamp_str = record.get("timestamp")  # ✅ `get()` 사용하여 키가 없을 경우 대비
         if not timestamp_str or not isinstance(timestamp_str, str):
             st.error(f"Invalid or missing timestamp in record: {record}")
